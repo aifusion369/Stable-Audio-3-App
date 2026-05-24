@@ -1,1 +1,707 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stable Audio 3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #09090f;
+      --surface:  #0f0f1a;
+      --panel:    #13131f;
+      --border:   rgba(255,255,255,0.07);
+      --accent:   #5b8cff;
+      --accent2:  #a78bfa;
+      --green:    #34d399;
+      --orange:   #fb923c;
+      --glow:     rgba(91,140,255,0.18);
+      --text:     #e8e8f0;
+      --muted:    #6b6b80;
+      --danger:   #ff5b5b;
+      --success:  #5bff9a;
+      --mono:     'DM Mono', monospace;
+      --serif:    'DM Serif Display', serif;
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 13px; overflow-x: hidden; }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 20% 10%, rgba(91,140,255,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 50% at 80% 80%, rgba(167,139,250,0.06) 0%, transparent 60%);
+      pointer-events: none; z-index: 0;
+    }
+
+    .layout {
+      position: relative; z-index: 1;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      grid-template-rows: auto 1fr;
+      min-height: 100vh;
+    }
+
+    /* HEADER */
+    header {
+      grid-column: 1 / -1;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 32px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(9,9,15,0.8);
+      backdrop-filter: blur(12px);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .logo { display: flex; align-items: baseline; gap: 10px; }
+    .logo-title { font-family: var(--serif); font-size: 22px; letter-spacing: -0.3px; }
+    .logo-badge {
+      font-size: 10px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--accent); background: rgba(91,140,255,0.1);
+      border: 1px solid rgba(91,140,255,0.25); padding: 2px 8px; border-radius: 100px;
+    }
+    .header-right { display: flex; align-items: center; gap: 20px; }
+    .header-status { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 8px var(--success); animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* MAIN */
+    main { padding: 36px 40px; display: flex; flex-direction: column; gap: 24px; overflow-y: auto; }
+
+    .section-label { font-size: 10px; font-weight: 500; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); }
+
+    /* MODEL SELECTOR */
+    .model-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+    .model-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      cursor: pointer;
+      transition: all 0.18s;
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .model-card::before {
+      content: '';
+      position: absolute; inset: 0;
+      opacity: 0;
+      transition: opacity 0.18s;
+      pointer-events: none;
+    }
+
+    .model-card.music::before  { background: radial-gradient(ellipse at top left, rgba(91,140,255,0.12), transparent 60%); }
+    .model-card.sfx::before    { background: radial-gradient(ellipse at top left, rgba(52,211,153,0.12), transparent 60%); }
+    .model-card.medium::before { background: radial-gradient(ellipse at top left, rgba(167,139,250,0.12), transparent 60%); }
+
+    .model-card:hover { border-color: rgba(255,255,255,0.15); transform: translateY(-1px); }
+    .model-card:hover::before { opacity: 1; }
+
+    .model-card.selected.music  { border-color: rgba(91,140,255,0.5);  box-shadow: 0 0 0 1px rgba(91,140,255,0.2),  0 4px 20px rgba(91,140,255,0.1); }
+    .model-card.selected.sfx   { border-color: rgba(52,211,153,0.5);  box-shadow: 0 0 0 1px rgba(52,211,153,0.2),  0 4px 20px rgba(52,211,153,0.1); }
+    .model-card.selected.medium{ border-color: rgba(167,139,250,0.5); box-shadow: 0 0 0 1px rgba(167,139,250,0.2), 0 4px 20px rgba(167,139,250,0.1); }
+    .model-card.selected::before { opacity: 1; }
+
+    .model-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+
+    .model-icon { font-size: 20px; }
+
+    .model-check {
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 1.5px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px;
+      transition: all 0.18s;
+      flex-shrink: 0;
+    }
+    .model-card.selected.music  .model-check { background: var(--accent);  border-color: var(--accent);  color: #fff; }
+    .model-card.selected.sfx   .model-check { background: var(--green);   border-color: var(--green);   color: #fff; }
+    .model-card.selected.medium .model-check { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+
+    .model-name { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+
+    .model-tag {
+      display: inline-block;
+      font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 500;
+      padding: 2px 7px; border-radius: 100px; margin-bottom: 8px;
+    }
+    .model-card.music  .model-tag { color: var(--accent);  background: rgba(91,140,255,0.1);  border: 1px solid rgba(91,140,255,0.2); }
+    .model-card.sfx    .model-tag { color: var(--green);   background: rgba(52,211,153,0.1);  border: 1px solid rgba(52,211,153,0.2); }
+    .model-card.medium .model-tag { color: var(--accent2); background: rgba(167,139,250,0.1); border: 1px solid rgba(167,139,250,0.2); }
+
+    .model-desc { font-size: 11px; color: var(--muted); line-height: 1.6; }
+
+    .model-specs { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+    .model-spec { font-size: 10px; color: var(--muted); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; }
+
+    /* PROMPT */
+    .prompt-section {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px 24px; display: flex; flex-direction: column; gap: 14px;
+      transition: border-color 0.2s;
+    }
+    .prompt-section:focus-within { border-color: rgba(91,140,255,0.35); box-shadow: 0 0 0 4px rgba(91,140,255,0.05); }
+
+    textarea {
+      width: 100%; background: transparent; border: none; outline: none; resize: none;
+      font-family: var(--mono); font-size: 14px; font-weight: 300; color: var(--text); line-height: 1.7; min-height: 90px;
+    }
+    textarea::placeholder { color: var(--muted); }
+
+    .prompt-examples { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .example-chip {
+      font-size: 11px; color: var(--muted);
+      background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+      border-radius: 100px; padding: 5px 12px; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    }
+    .example-chip:hover { color: var(--accent); border-color: rgba(91,140,255,0.3); background: rgba(91,140,255,0.06); }
+
+    /* CONTROLS */
+    .controls-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+    .control-card {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+      padding: 18px 20px; display: flex; flex-direction: column; gap: 12px;
+    }
+    .control-header { display: flex; align-items: center; justify-content: space-between; }
+    .control-value { font-size: 20px; font-family: var(--serif); color: var(--accent); }
+
+    input[type=range] {
+      -webkit-appearance: none; appearance: none; width: 100%;
+      height: 3px; background: var(--border); border-radius: 2px; outline: none; cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 14px; height: 14px; border-radius: 50%; background: var(--accent);
+      box-shadow: 0 0 8px var(--glow); cursor: pointer; transition: box-shadow 0.15s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover { box-shadow: 0 0 16px rgba(91,140,255,0.5); }
+
+    .control-hint { font-size: 10px; color: var(--muted); }
+
+    /* GENERATE */
+    .generate-wrap { display: flex; align-items: center; gap: 14px; }
+
+    .btn-generate {
+      position: relative; display: flex; align-items: center; gap: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none; border-radius: 10px; padding: 14px 32px;
+      color: #fff; font-family: var(--mono); font-size: 13px; font-weight: 500;
+      letter-spacing: 0.5px; cursor: pointer; overflow: hidden;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn-generate::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,255,255,0.12),transparent); pointer-events:none; }
+    .btn-generate:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(91,140,255,0.35); }
+    .btn-generate:active { transform: translateY(0); }
+    .btn-generate:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .model-indicator { font-size: 11px; color: var(--muted); }
+    .model-indicator strong { color: var(--text); }
+
+    /* PROGRESS */
+    .progress-card {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+      padding: 22px 24px; display: none; flex-direction: column; gap: 14px;
+    }
+    .progress-card.visible { display: flex; }
+
+    .progress-top { display: flex; align-items: center; justify-content: space-between; }
+    .progress-label { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+
+    .spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+    .spinner.active { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .progress-bar-wrap { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 2px; transition: width 0.4s ease; }
+    .progress-bar.indeterminate { width: 40%; animation: slide 1.5s ease-in-out infinite; }
+    @keyframes slide { 0%{transform:translateX(-100%)} 100%{transform:translateX(350%)} }
+
+    /* OUTPUT */
+    .output-card {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+      padding: 22px 24px; display: none; flex-direction: column; gap: 16px;
+    }
+    .output-card.visible { display: flex; }
+
+    .output-meta { display: flex; align-items: center; justify-content: space-between; }
+    .output-prompt-preview { font-size: 12px; color: var(--muted); max-width: 60%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    audio { width: 100%; height: 40px; accent-color: var(--accent); border-radius: 6px; }
+
+    .output-actions { display: flex; gap: 10px; }
+
+    .btn-action {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 16px; color: var(--text); font-family: var(--mono);
+      font-size: 12px; text-decoration: none; transition: all 0.15s; cursor: pointer;
+    }
+    .btn-action:hover { background: rgba(91,140,255,0.1); border-color: rgba(91,140,255,0.3); color: var(--accent); }
+
+    .error-msg {
+      font-size: 12px; color: var(--danger);
+      background: rgba(255,91,91,0.07); border: 1px solid rgba(255,91,91,0.2);
+      border-radius: 8px; padding: 12px 16px; display: none;
+    }
+    .error-msg.visible { display: block; }
+
+    /* WAVEFORM */
+    .waveform { display: flex; align-items: center; gap: 2px; height: 28px; }
+    .waveform-bar { width: 3px; background: var(--accent); border-radius: 2px; opacity: 0.4; animation: wave 1.2s ease-in-out infinite; }
+    @keyframes wave { 0%,100%{transform:scaleY(0.3)} 50%{transform:scaleY(1)} }
+
+    .status-text { font-size: 12px; color: var(--muted); }
+
+    /* SIDEBAR */
+    aside { border-left: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; overflow: hidden; }
+
+    .aside-header {
+      padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+      font-size: 10px; font-weight: 500; letter-spacing: 2.5px; text-transform: uppercase;
+      color: var(--muted); display: flex; align-items: center; justify-content: space-between;
+    }
+    .history-count { font-size: 11px; color: var(--accent); font-weight: 500; letter-spacing: 0; }
+
+    .history-list { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .history-list::-webkit-scrollbar { width: 4px; }
+    .history-list::-webkit-scrollbar-track { background: transparent; }
+    .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .history-item {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;
+      animation: fadeUp 0.3s ease;
+    }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+    .history-item-top { display: flex; align-items: center; justify-content: space-between; }
+    .history-filename { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+
+    .history-model-badge {
+      font-size: 9px; letter-spacing: 1px; text-transform: uppercase; font-weight: 500;
+      padding: 2px 6px; border-radius: 100px;
+    }
+    .badge-music  { color: var(--accent);  background: rgba(91,140,255,0.1);  border: 1px solid rgba(91,140,255,0.2); }
+    .badge-sfx    { color: var(--green);   background: rgba(52,211,153,0.1);  border: 1px solid rgba(52,211,153,0.2); }
+    .badge-medium { color: var(--accent2); background: rgba(167,139,250,0.1); border: 1px solid rgba(167,139,250,0.2); }
+
+    .history-audio { width: 100%; height: 32px; accent-color: var(--accent); }
+
+    .history-actions { display: flex; gap: 6px; }
+    .history-btn {
+      font-size: 10px; font-family: var(--mono); padding: 5px 10px;
+      border-radius: 6px; border: 1px solid var(--border); background: transparent;
+      color: var(--muted); cursor: pointer; transition: all 0.15s; text-decoration: none; display: inline-block;
+    }
+    .history-btn:hover { color: var(--accent); border-color: rgba(91,140,255,0.3); }
+
+    .empty-history { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:10px; color:var(--muted); font-size:12px; text-align:center; padding:40px; }
+    .empty-icon { font-size:32px; opacity:0.3; }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <span class="logo-title">Stable Audio 3</span>
+      <span class="logo-badge">Local</span>
+    </div>
+    <div class="header-right">
+      <div class="header-status">
+        <div class="status-dot"></div>
+        CUDA Ready
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main>
+
+    <!-- MODEL SELECTOR -->
+    <div>
+      <div class="section-label" style="margin-bottom:12px">Model</div>
+      <div class="model-selector">
+
+        <div class="model-card music selected" onclick="selectModel('small-music', this)">
+          <div class="model-card-top">
+            <span class="model-icon">♫</span>
+            <span class="model-check">✓</span>
+          </div>
+          <div class="model-name">Small Music</div>
+          <div class="model-tag">Music</div>
+          <div class="model-desc">Full music composition optimised for on-device generation. Fast and expressive.</div>
+          <div class="model-specs">
+            <span class="model-spec">433M params</span>
+            <span class="model-spec">Up to 120s</span>
+            <span class="model-spec">Fast</span>
+          </div>
+        </div>
+
+        <div class="model-card sfx" onclick="selectModel('small-sfx', this)">
+          <div class="model-card-top">
+            <span class="model-icon">⚡</span>
+            <span class="model-check">✓</span>
+          </div>
+          <div class="model-name">Small SFX</div>
+          <div class="model-tag">Sound FX</div>
+          <div class="model-desc">Specialised in sound effects and foley. Great for short precise audio cues.</div>
+          <div class="model-specs">
+            <span class="model-spec">433M params</span>
+            <span class="model-spec">Up to 120s</span>
+            <span class="model-spec">Fast</span>
+          </div>
+        </div>
+
+        <div class="model-card medium" onclick="selectModel('medium', this)">
+          <div class="model-card-top">
+            <span class="model-icon">◈</span>
+            <span class="model-check">✓</span>
+          </div>
+          <div class="model-name">Medium</div>
+          <div class="model-tag">Music · Premium</div>
+          <div class="model-desc">Higher musicality, structure and melodic coherence. Longer tracks up to 6 min 20s.</div>
+          <div class="model-specs">
+            <span class="model-spec">1.4B params</span>
+            <span class="model-spec">Up to 380s</span>
+            <span class="model-spec">~7.5 GB VRAM</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- PROMPT -->
+    <div class="prompt-section">
+      <div class="section-label">Prompt</div>
+      <textarea id="prompt" rows="4" placeholder="Describe what you want to generate..."></textarea>
+      <div class="prompt-examples" id="example-chips">
+        <!-- Populated by JS based on selected model -->
+      </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="controls-grid">
+      <div class="control-card">
+        <div class="control-header">
+          <span class="section-label">Duration</span>
+          <span class="control-value" id="duration-val">30s</span>
+        </div>
+        <input type="range" id="duration" min="5" max="120" value="30" step="5"
+          oninput="document.getElementById('duration-val').textContent = this.value + 's'" />
+        <span class="control-hint" id="duration-hint">5 – 120 seconds</span>
+      </div>
+      <div class="control-card">
+        <div class="control-header">
+          <span class="section-label">Inference Steps</span>
+          <span class="control-value" id="steps-val">8</span>
+        </div>
+        <input type="range" id="steps" min="4" max="32" value="8" step="2"
+          oninput="document.getElementById('steps-val').textContent = this.value" />
+        <span class="control-hint">4 = fastest · 32 = highest quality</span>
+      </div>
+      <div class="control-card">
+        <div class="control-header">
+          <span class="section-label">CFG Scale</span>
+          <span class="control-value" id="cfg-val">1.0</span>
+        </div>
+        <input type="range" id="cfg" min="0.5" max="5.0" value="1.0" step="0.5"
+          oninput="document.getElementById('cfg-val').textContent = parseFloat(this.value).toFixed(1)" />
+        <span class="control-hint">Prompt adherence strength</span>
+      </div>
+    </div>
+
+    <!-- GENERATE -->
+    <div class="generate-wrap">
+      <button class="btn-generate" id="gen-btn" onclick="generate()">
+        <span>⬡</span>
+        Generate
+      </button>
+      <span class="model-indicator">Using <strong id="model-indicator-name">Small Music</strong></span>
+    </div>
+
+    <!-- PROGRESS -->
+    <div class="progress-card" id="progress-card">
+      <div class="progress-top">
+        <div class="progress-label">
+          <div class="spinner active" id="spinner"></div>
+          <span class="status-text" id="status-msg">Queued...</span>
+        </div>
+        <div class="waveform" id="waveform" style="display:none">
+          <div class="waveform-bar" style="animation-delay:0s;height:60%"></div>
+          <div class="waveform-bar" style="animation-delay:0.1s;height:80%"></div>
+          <div class="waveform-bar" style="animation-delay:0.2s;height:100%"></div>
+          <div class="waveform-bar" style="animation-delay:0.3s;height:80%"></div>
+          <div class="waveform-bar" style="animation-delay:0.4s;height:60%"></div>
+          <div class="waveform-bar" style="animation-delay:0.5s;height:40%"></div>
+          <div class="waveform-bar" style="animation-delay:0.6s;height:60%"></div>
+          <div class="waveform-bar" style="animation-delay:0.7s;height:80%"></div>
+        </div>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar indeterminate" id="progress-bar"></div>
+      </div>
+    </div>
+
+    <!-- ERROR -->
+    <div class="error-msg" id="error-msg"></div>
+
+    <!-- OUTPUT -->
+    <div class="output-card" id="output-card">
+      <div class="output-meta">
+        <div class="section-label">Output</div>
+        <span class="output-prompt-preview" id="output-prompt-preview"></span>
+      </div>
+      <audio id="audio-player" controls></audio>
+      <div class="output-actions">
+        <a class="btn-action" id="download-link" href="#" download>↓ Download WAV</a>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- SIDEBAR -->
+  <aside>
+    <div class="aside-header">
+      History
+      <span class="history-count" id="history-count">0</span>
+    </div>
+    <div class="history-list" id="history-list">
+      <div class="empty-history">
+        <div class="empty-icon">♪</div>
+        <div>No generations yet.<br>Create your first track above.</div>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<script>
+  let currentJobId = null;
+  let pollInterval = null;
+  let selectedModel = 'small-music';
+
+  const modelNames = {
+    'small-music': 'Small Music',
+    'small-sfx':   'Small SFX',
+    'medium':      'Medium',
+  };
+
+  const modelMaxDuration = {
+    'small-music': 120,
+    'small-sfx':   120,
+    'medium':      380,
+  };
+
+  const modelExamples = {
+    'small-music': [
+      'House music with euphoric pads 124 BPM',
+      'Dark ambient drone cinematic tension',
+      'Lo-fi hip hop chill beats vinyl crackle',
+      'Synthwave retro 80s driving 110 BPM',
+      'Dream-like Synthpop surrealist 120 BPM',
+      'Epic orchestral cinematic battle theme',
+    ],
+    'small-sfx': [
+      'Chugging train arriving at station with horn',
+      'Thunderstorm with heavy rain and lightning',
+      'Crowd cheering in a large stadium',
+      'Spaceship engine hum powering up',
+      'Forest ambience with birds and wind',
+      'Door creaking open slowly horror style',
+    ],
+    'medium': [
+      'House music festival euphoric pads 124 BPM',
+      'Complex jazz trio with piano bass and drums',
+      'Cinematic orchestral score building tension',
+      'Progressive techno evolving over 5 minutes',
+      'Lush ambient soundscape with evolving pads',
+      'Funk groove with live guitar and brass section',
+    ],
+  };
+
+  const statusMessages = {
+    queued:        'Queued...',
+    loading_model: 'Loading model into VRAM...',
+    generating:    'Generating audio...',
+    done:          'Complete',
+    error:         'Error',
+  };
+
+  function selectModel(key, cardEl) {
+    selectedModel = key;
+    document.querySelectorAll('.model-card').forEach(c => c.classList.remove('selected'));
+    cardEl.classList.add('selected');
+    document.getElementById('model-indicator-name').textContent = modelNames[key];
+
+    // Update duration range max
+    const maxDur = modelMaxDuration[key];
+    const durInput = document.getElementById('duration');
+    durInput.max = maxDur;
+    document.getElementById('duration-hint').textContent = `5 – ${maxDur} seconds`;
+    if (+durInput.value > maxDur) {
+      durInput.value = maxDur;
+      document.getElementById('duration-val').textContent = maxDur + 's';
+    }
+
+    // Update examples
+    renderExamples(key);
+  }
+
+  function renderExamples(key) {
+    const chips = document.getElementById('example-chips');
+    chips.innerHTML = modelExamples[key]
+      .map(e => `<span class="example-chip" onclick="setPrompt(this)">${e}</span>`)
+      .join('');
+  }
+
+  function setPrompt(el) {
+    document.getElementById('prompt').value = el.textContent;
+    document.getElementById('prompt').focus();
+  }
+
+  async function generate() {
+    const prompt = document.getElementById('prompt').value.trim();
+    if (!prompt) { showError('Please enter a prompt.'); return; }
+
+    clearOutput();
+    showProgress();
+    document.getElementById('gen-btn').disabled = true;
+
+    const body = {
+      prompt,
+      duration:  +document.getElementById('duration').value,
+      steps:     +document.getElementById('steps').value,
+      cfg_scale: +document.getElementById('cfg').value,
+      model:     selectedModel,
+    };
+
+    try {
+      const res  = await fetch('/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (data.error) { showError(data.error); document.getElementById('gen-btn').disabled = false; return; }
+      currentJobId = data.job_id;
+      pollInterval = setInterval(() => pollStatus(prompt), 1500);
+    } catch(e) {
+      showError('Failed to reach the server: ' + e.message);
+      document.getElementById('gen-btn').disabled = false;
+      hideProgress();
+    }
+  }
+
+  async function pollStatus(prompt) {
+    if (!currentJobId) return;
+    try {
+      const res  = await fetch('/status/' + currentJobId);
+      const data = await res.json();
+      document.getElementById('status-msg').textContent = statusMessages[data.status] || data.status;
+
+      if (data.status === 'generating') {
+        document.getElementById('waveform').style.display = 'flex';
+      }
+
+      if (data.status === 'done') {
+        clearInterval(pollInterval);
+        hideProgress();
+        showOutput(data.filename, prompt);
+        addToHistory(data.filename, data.model_key || selectedModel);
+        document.getElementById('gen-btn').disabled = false;
+      }
+
+      if (data.status === 'error') {
+        clearInterval(pollInterval);
+        hideProgress();
+        showError('Generation failed: ' + (data.error || 'unknown error'));
+        document.getElementById('gen-btn').disabled = false;
+      }
+    } catch(e) {}
+  }
+
+  function showProgress() {
+    document.getElementById('progress-card').classList.add('visible');
+    document.getElementById('waveform').style.display = 'none';
+    document.getElementById('status-msg').textContent = 'Queued...';
+  }
+
+  function hideProgress() { document.getElementById('progress-card').classList.remove('visible'); }
+
+  function clearOutput() {
+    document.getElementById('output-card').classList.remove('visible');
+    document.getElementById('error-msg').classList.remove('visible');
+  }
+
+  function showOutput(filename, prompt) {
+    const url = '/outputs/' + filename;
+    document.getElementById('audio-player').src = url;
+    document.getElementById('download-link').href = url;
+    document.getElementById('download-link').download = filename;
+    document.getElementById('output-prompt-preview').textContent = prompt;
+    document.getElementById('output-card').classList.add('visible');
+    document.getElementById('audio-player').play();
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.classList.add('visible');
+  }
+
+  function badgeClass(modelKey) {
+    if (modelKey === 'small-sfx') return 'badge-sfx';
+    if (modelKey === 'medium')    return 'badge-medium';
+    return 'badge-music';
+  }
+
+  function badgeLabel(modelKey) {
+    return modelNames[modelKey] || modelKey;
+  }
+
+  function addToHistory(filename, modelKey) {
+    const list = document.getElementById('history-list');
+    const empty = list.querySelector('.empty-history');
+    if (empty) empty.remove();
+
+    const url = '/outputs/' + filename;
+    const item = document.createElement('div');
+    item.className = 'history-item';
+    item.innerHTML = `
+      <div class="history-item-top">
+        <span class="history-filename">${filename.substring(0,20)}…</span>
+        <span class="history-model-badge ${badgeClass(modelKey)}">${badgeLabel(modelKey)}</span>
+      </div>
+      <audio class="history-audio" controls src="${url}"></audio>
+      <div class="history-actions">
+        <a class="history-btn" href="${url}" download="${filename}">↓ Download</a>
+      </div>
+    `;
+    list.prepend(item);
+    document.getElementById('history-count').textContent = list.querySelectorAll('.history-item').length;
+  }
+
+  async function loadHistory() {
+    try {
+      const res   = await fetch('/history');
+      const files = await res.json();
+      if (!files.length) return;
+      const list = document.getElementById('history-list');
+      list.innerHTML = '';
+      files.forEach(f => addToHistory(f.filename, 'small-music'));
+    } catch(e) {}
+  }
+
+  // Init
+  renderExamples('small-music');
+  loadHistory();
+</script>
+</body>
+</html>
